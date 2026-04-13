@@ -3,8 +3,6 @@
     "module": "commonjs",
     "target": "ES2021",
     "outDir": "./dist",
-    "baseUrl": ".",
-    "ignoreDeprecations": "6.0",
 
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
@@ -19,11 +17,7 @@
     "strict": false,
     "noImplicitAny": false,
 
-    "types": ["node", "jest"],
-
-    "paths": {
-      "src/*": ["src/*"]
-    }
+    "types": ["node", "jest"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "prisma/**/*.ts"],
   "exclude": ["node_modules", "dist"]
