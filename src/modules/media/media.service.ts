@@ -25,7 +25,7 @@ export class MediaService {
 
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}${extname(file.originalname) || ''}`;
     const fullPath = join(folder, filename);
-    writeFileSync(fullPath, file.buffer);
+    writeFileSync(fullPath, new Uint8Array(file.buffer));
 
     return this.prisma.mediaFile.create({
       data: {
