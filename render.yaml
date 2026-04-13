@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: agriya-backend-nest
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/v1/sante
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8000
+      - key: APP_NAME
+        value: AGRIYA API
+      - key: CORS_ORIGINS
+        value: https://agriya-web.onrender.com

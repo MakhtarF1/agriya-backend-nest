@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agriya-backend
+  namespace: agriya
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agriya-backend
+  template:
+    metadata:
+      labels:
+        app: agriya-backend
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/example/agriya-backend:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: agriya-backend-config
+            - secretRef:
+                name: agriya-backend-secret
+          readinessProbe:
+            httpGet:
+              path: /api/v1/sante
+              port: 8000
+          livenessProbe:
+            httpGet:
+              path: /api/v1/sante
+              port: 8000

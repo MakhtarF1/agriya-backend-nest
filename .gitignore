@@ -1,0 +1,9 @@
+node_modules
+.env
+.env.local
+.env.production
+coverage
+dist
+.prisma
+storage/*
+!storage/.gitkeep

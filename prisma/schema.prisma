@@ -1,0 +1,578 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleUtilisateur {
+  AGRICULTEUR
+  ACHETEUR
+  COMPTE_PRO
+  ADMIN
+}
+
+enum StatutUtilisateur {
+  ACTIF
+  SUSPENDU
+  EN_ATTENTE
+}
+
+enum RoleMembreOrganisation {
+  OWNER
+  ADMIN
+  MEMBRE
+}
+
+enum StatutOrganisation {
+  ACTIVE
+  INACTIVE
+  SUSPENDUE
+}
+
+enum StatutAbonnement {
+  ACTIVE
+  EXPIREE
+  ANNULEE
+  EN_ATTENTE
+}
+
+enum StatutPaiement {
+  EN_ATTENTE
+  PAYE
+  ECHOUE
+  REMBOURSE
+}
+
+enum TypeMedia {
+  IMAGE
+  AUDIO
+  VIDEO
+  DOCUMENT
+}
+
+enum CanalConversation {
+  TEXTE
+  AUDIO
+  IMAGE
+  VIDEO
+}
+
+enum StatutConversation {
+  OUVERTE
+  ARCHIVEE
+}
+
+enum ExpediteurMessage {
+  UTILISATEUR
+  ASSISTANT
+}
+
+enum TypeMessage {
+  TEXTE
+  AUDIO
+  IMAGE
+  VIDEO
+  SYSTEME
+}
+
+enum NiveauUrgence {
+  FAIBLE
+  MOYEN
+  ELEVEE
+  CRITIQUE
+}
+
+enum StatutTache {
+  A_FAIRE
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum StatutRappel {
+  EN_ATTENTE
+  ENVOYE
+  ANNULE
+}
+
+enum TypeNotification {
+  INFO
+  ALERTE
+  SUCCES
+  ERREUR
+  SYSTEME
+}
+
+enum StatutProduit {
+  BROUILLON
+  PUBLIE
+  INDISPONIBLE
+  SUSPENDU
+}
+
+enum StatutDemandeAchat {
+  OUVERTE
+  EN_COURS
+  FERMEE
+  ANNULEE
+}
+
+enum StatutCommande {
+  EN_ATTENTE
+  CONFIRMEE
+  PREPARATION
+  EXPEDIEE
+  LIVREE
+  ANNULEE
+}
+
+enum StatutExploitation {
+  ACTIVE
+  ARCHIVEE
+}
+
+enum StatutParcelle {
+  ACTIVE
+  INACTIVE
+  ARCHIVEE
+}
+
+enum StatutCulture {
+  PLANIFIEE
+  EN_COURS
+  RECOLTEE
+  ARCHIVEE
+}
+
+model User {
+  id                  String                 @id @default(cuid())
+  email               String                 @unique
+  phone               String?
+  passwordHash        String
+  role                RoleUtilisateur        @default(AGRICULTEUR)
+  status              StatutUtilisateur      @default(ACTIF)
+  language            String                 @default("fr")
+  country             String                 @default("SN")
+  lastLoginAt         DateTime?
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+  profile             UserProfile?
+  organizations       OrganizationMember[]
+  ownedOrganizations  Organization[]         @relation("OwnerOrganizations")
+  farms               Farm[]
+  mediaFiles          MediaFile[]
+  aiConversations     AiConversation[]
+  diagnoses           Diagnosis[]
+  tasks               Task[]
+  reminders           Reminder[]
+  notifications       Notification[]
+  products            Product[]              @relation("SellerProducts")
+  purchaseRequests    PurchaseRequest[]
+  cartItems           CartItem[]
+  buyOrders           Order[]                @relation("BuyerOrders")
+  sellOrders          Order[]                @relation("SellerOrders")
+  subscriptions       Subscription[]
+  payments            Payment[]
+  favorites           Favorite[]
+}
+
+model UserProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  fullName          String
+  photoUrl          String?
+  bio               String?
+  city              String?
+  region            String?
+  preferredLanguage String?  @default("fr")
+  isProducer        Boolean  @default(true)
+  isBuyer           Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Organization {
+  id               String                @id @default(cuid())
+  ownerUserId      String
+  name             String
+  slug             String                @unique
+  sector           String?
+  country          String                @default("SN")
+  city             String?
+  address          String?
+  phone            String?
+  planCode         String?
+  status           StatutOrganisation    @default(ACTIVE)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  owner            User                  @relation("OwnerOrganizations", fields: [ownerUserId], references: [id])
+  members          OrganizationMember[]
+  subscriptions    Subscription[]
+  purchaseRequests PurchaseRequest[]
+  orders           Order[]
+}
+
+model OrganizationMember {
+  id             String                 @id @default(cuid())
+  organizationId String
+  userId         String
+  memberRole     RoleMembreOrganisation @default(MEMBRE)
+  invitedBy      String?
+  invitedAt      DateTime?              @default(now())
+  joinedAt       DateTime?
+  status         String                 @default("ACTIVE")
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model SubscriptionPlan {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  audience      String
+  monthlyPrice  Decimal        @db.Decimal(12, 2)
+  currency      String         @default("XOF")
+  quotasJson    Json?
+  featuresJson  Json?
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id             String             @id @default(cuid())
+  userId         String?
+  organizationId String?
+  planId         String
+  status         StatutAbonnement   @default(EN_ATTENTE)
+  startedAt      DateTime           @default(now())
+  endsAt         DateTime?
+  autoRenew      Boolean            @default(false)
+  quotaStateJson Json?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  user           User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization   Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  plan           SubscriptionPlan   @relation(fields: [planId], references: [id])
+  payments       Payment[]
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  subscriptionId String?
+  userId         String?
+  provider       String
+  providerRef    String?        @unique
+  amount         Decimal        @db.Decimal(12, 2)
+  currency       String         @default("XOF")
+  status         StatutPaiement @default(EN_ATTENTE)
+  paidAt         DateTime?
+  rawPayloadJson Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  subscription   Subscription?  @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  user           User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Farm {
+  id           String             @id @default(cuid())
+  ownerUserId  String
+  name         String
+  country      String             @default("SN")
+  region       String?
+  city         String?
+  locationText String?
+  latitude     Float?
+  longitude    Float?
+  notes        String?
+  status       StatutExploitation @default(ACTIVE)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  owner        User               @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  plots        Plot[]
+  products     Product[]
+}
+
+model Plot {
+  id             String         @id @default(cuid())
+  farmId         String
+  name           String
+  surfaceValue   Float?
+  surfaceUnit    String?        @default("ha")
+  soilNotes      String?
+  irrigationType String?
+  locationText   String?
+  latitude       Float?
+  longitude      Float?
+  status         StatutParcelle @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  farm           Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  crops          Crop[]
+  diagnoses      Diagnosis[]
+  tasks          Task[]
+}
+
+model Crop {
+  id                  String        @id @default(cuid())
+  plotId              String
+  cropName            String
+  variety             String?
+  seasonLabel         String?
+  sowingDate          DateTime?
+  expectedHarvestDate DateTime?
+  growthStage         String?
+  status              StatutCulture @default(PLANIFIEE)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  plot                Plot          @relation(fields: [plotId], references: [id], onDelete: Cascade)
+  diagnoses           Diagnosis[]
+  tasks               Task[]
+}
+
+model MediaFile {
+  id             String           @id @default(cuid())
+  ownerUserId    String
+  fileType       TypeMedia
+  mimeType       String
+  storageKey     String
+  publicUrl      String?
+  thumbnailUrl   String?
+  durationSec    Float?
+  sizeBytes      Int?
+  createdAt      DateTime         @default(now())
+  owner          User             @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  aiMessages     AiMessage[]
+  diagnosisLinks DiagnosisMedia[]
+  productImages  ProductImage[]
+}
+
+model AiConversation {
+  id        String             @id @default(cuid())
+  userId    String
+  channel   CanalConversation  @default(TEXTE)
+  subject   String?
+  language  String             @default("fr")
+  country   String             @default("SN")
+  status    StatutConversation @default(OUVERTE)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiMessage[]
+  diagnoses Diagnosis[]
+}
+
+model AiMessage {
+  id             String            @id @default(cuid())
+  conversationId String
+  senderType     ExpediteurMessage
+  messageType    TypeMessage       @default(TEXTE)
+  textContent    String?
+  mediaId        String?
+  structuredJson Json?
+  createdAt      DateTime          @default(now())
+  conversation   AiConversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  media          MediaFile?        @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+}
+
+model Diagnosis {
+  id                  String          @id @default(cuid())
+  userId              String
+  plotId              String?
+  cropId              String?
+  conversationId      String?
+  diagnosisType       String
+  confidenceScore     Float?
+  urgencyLevel        NiveauUrgence?
+  summary             String
+  recommendationsJson Json?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  user                User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plot                Plot?           @relation(fields: [plotId], references: [id], onDelete: SetNull)
+  crop                Crop?           @relation(fields: [cropId], references: [id], onDelete: SetNull)
+  conversation        AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  mediaLinks          DiagnosisMedia[]
+}
+
+model DiagnosisMedia {
+  id          String    @id @default(cuid())
+  diagnosisId String
+  mediaId     String
+  diagnosis   Diagnosis @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  media       MediaFile @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([diagnosisId, mediaId])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  userId      String
+  plotId      String?
+  cropId      String?
+  sourceType  String?
+  title       String
+  description String?
+  dueAt       DateTime?
+  priority    String?      @default("MOYEN")
+  status      StatutTache  @default(A_FAIRE)
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plot        Plot?        @relation(fields: [plotId], references: [id], onDelete: SetNull)
+  crop        Crop?        @relation(fields: [cropId], references: [id], onDelete: SetNull)
+  reminders   Reminder[]
+}
+
+model Reminder {
+  id        String       @id @default(cuid())
+  userId    String
+  taskId    String?
+  remindAt  DateTime
+  channel   String       @default("IN_APP")
+  status    StatutRappel @default(EN_ATTENTE)
+  sentAt    DateTime?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task      Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      TypeNotification @default(INFO)
+  title     String
+  body      String
+  dataJson  Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id                String        @id @default(cuid())
+  sellerUserId      String
+  farmId            String?
+  name              String
+  category          String?
+  description       String?
+  unit              String        @default("kg")
+  price             Decimal       @db.Decimal(12, 2)
+  quantityAvailable Float         @default(0)
+  currency          String        @default("XOF")
+  country           String        @default("SN")
+  city              String?
+  status            StatutProduit @default(BROUILLON)
+  publishedAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  seller            User          @relation("SellerProducts", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  farm              Farm?         @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  images            ProductImage[]
+  favorites         Favorite[]
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+}
+
+model ProductImage {
+  id        String    @id @default(cuid())
+  productId String
+  mediaId   String
+  sortOrder Int       @default(0)
+  isPrimary Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  media     MediaFile @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, mediaId])
+}
+
+model PurchaseRequest {
+  id                String             @id @default(cuid())
+  buyerUserId       String
+  organizationId    String?
+  title             String
+  description       String?
+  category          String?
+  requestedQuantity Float?
+  unit              String?            @default("kg")
+  targetPrice       Decimal?           @db.Decimal(12, 2)
+  city              String?
+  neededBy          DateTime?
+  status            StatutDemandeAchat @default(OUVERTE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  buyer             User               @relation(fields: [buyerUserId], references: [id], onDelete: Cascade)
+  organization      Organization?      @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model CartItem {
+  id                String   @id @default(cuid())
+  userId            String
+  productId         String
+  quantity          Float
+  unit              String   @default("kg")
+  unitPriceSnapshot Decimal  @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+}
+
+model Order {
+  id             String         @id @default(cuid())
+  buyerUserId    String
+  organizationId String?
+  sellerUserId   String
+  orderNumber    String         @unique
+  status         StatutCommande @default(EN_ATTENTE)
+  subtotal       Decimal        @db.Decimal(12, 2)
+  fees           Decimal        @default(0) @db.Decimal(12, 2)
+  total          Decimal        @db.Decimal(12, 2)
+  currency       String         @default("XOF")
+  paymentStatus  StatutPaiement @default(EN_ATTENTE)
+  orderedAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  buyer          User           @relation("BuyerOrders", fields: [buyerUserId], references: [id], onDelete: Cascade)
+  seller         User           @relation("SellerOrders", fields: [sellerUserId], references: [id], onDelete: Cascade)
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+}
+
+model OrderItem {
+  id                  String   @id @default(cuid())
+  orderId             String
+  productId           String?
+  productNameSnapshot String
+  quantity            Float
+  unit                String   @default("kg")
+  unitPrice           Decimal  @db.Decimal(12, 2)
+  lineTotal           Decimal  @db.Decimal(12, 2)
+  createdAt           DateTime @default(now())
+  order               Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+}
