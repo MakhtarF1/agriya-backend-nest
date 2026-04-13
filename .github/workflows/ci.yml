@@ -1,4 +1,5 @@
 name: backend-ci
+
 on:
   push:
     paths:
@@ -11,9 +12,11 @@ on:
 jobs:
   build-test:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: apps/backend-nest
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -21,24 +24,39 @@ jobs:
           POSTGRES_DB: agriya_nest
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: passer
-        ports: ['5432:5432']
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: apps/backend-nest/package-lock.json
-      - run: npm ci
-      - run: cp .env.example .env
-      - run: npx prisma generate
-      - run: npx prisma migrate deploy
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup env
+        run: cp .env.example .env
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run migrations
+        run: npx prisma migrate deploy
         env:
-          DATABASE_URL: postgresql://postgres:passer@localhost:5432/agriya_nest?schema=public
-      - run: npm run build
-      - run: npm test -- --runInBand
+          DATABASE_URL: postgresql://postgres:passer@localhost:5432/agriya_nest
+
+      - name: Build app
+        run: npm run build
+
+      - name: Run tests
+        run: npm test -- --runInBand
